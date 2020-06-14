@@ -1,4 +1,4 @@
-combineData <- function(fileName ="~/Duff/TidyData/UCI HAR Dataset"){
+combineData <- function(fileName ="./UCI HAR Dataset"){
   #read all data from the files
   setwd(fileName)
   test_data <- read.csv("test/X_test.txt",header = F)
@@ -10,7 +10,7 @@ combineData <- function(fileName ="~/Duff/TidyData/UCI HAR Dataset"){
   act_trn <- read.csv("train/y_train.txt",header = F)
   
   act_lbl <- read.csv("activity_labels.txt",header = F,sep = " ") 
-  fileName <- "~/Duff/TidyData/"
+  fileName <- ".."
   setwd(fileName)
   #combine the test and train data sets
   subjects <- rbind(tst_sub,trn_sub)
@@ -50,6 +50,7 @@ combineData <- function(fileName ="~/Duff/TidyData/UCI HAR Dataset"){
   experiment_values <- full_join(experiment_details,combined_data,by.x = c("Subject,Activity"),by.y = c("Subject,Activity")) %>%
     select(c(id,average)) %>% group_by(id) %>% summarise(average = mean(average)) 
   
-  concise_data <- full_join(experiment_details,experiment_values) %>% View
+  concise_data <- full_join(experiment_details,experiment_values) %>% select(!id) %>% spread(Activity,average)
+  
   
 }
