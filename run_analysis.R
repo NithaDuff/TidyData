@@ -1,56 +1,40 @@
-combineData <- function(fileName ="./UCI HAR Dataset"){
+combineData <- function(){
   #read all data from the files
-  setwd(fileName)
-  test_data <- read.csv("test/X_test.txt",header = F)
-  tst_sub <- read.csv("test/subject_test.txt",header = F)
-  act_tst <- read.csv("test/y_test.txt",header = F)
-  
-  train_data <- read.csv("train/X_train.txt",header = F)
-  trn_sub <- read.csv("train/subject_train.txt",header = F)
-  act_trn <- read.csv("train/y_train.txt",header = F)
-  
-  act_lbl <- read.csv("activity_labels.txt",header = F,sep = " ") 
-  fileName <- ".."
-  setwd(fileName)
+  features <- read.table("UCI HAR Dataset/features.txt", col.names = c("n","functions"))
+  activities <- read.table("UCI HAR Dataset/activity_labels.txt", col.names = c("code", "activity"))
+  subject_test <- read.table("UCI HAR Dataset/test/subject_test.txt", col.names = "subject")
+  x_test <- read.table("UCI HAR Dataset/test/X_test.txt", col.names = features$functions)
+  y_test <- read.table("UCI HAR Dataset/test/y_test.txt", col.names = "code")
+  subject_train <- read.table("UCI HAR Dataset/train/subject_train.txt", col.names = "subject")
+  x_train <- read.table("UCI HAR Dataset/train/X_train.txt", col.names = features$functions)
+  y_train <- read.table("UCI HAR Dataset/train/y_train.txt", col.names = "code")
+ 
   #combine the test and train data sets
-  subjects <- rbind(tst_sub,trn_sub)
-  rm(tst_sub)
-  rm(trn_sub)
-  act <- rbind(act_tst,act_trn)
-  rm(act_tst)
-  rm(act_trn)
-  values <- rbind(test_data,train_data)
-  rm(test_data)
-  rm(train_data)
+  subjects <- rbind(subject_test,subject_train)
+  X <- rbind(x_test,x_train)
+  Y <- rbind(y_test,y_train)
   
   #converting the values into a single dataframe
+  combined_data <- cbind(subjects,Y,X)
+  names(combined_data)[2] <- "activity"
+  
   #Descriptive activity labels
-  colnames(act_lbl) <- c("Activity_id","Activity")
-  combined_data <- cbind(subjects,as.numeric(unlist(act)),values)
-  rm(subjects)
-  rm(act)
-  names(combined_data) <- c("Subject","Activity_id","Values")
-  combined_data <- combined_data %>% arrange(as.numeric(Subject),Activity_id) %>% full_join(act_lbl)
+  combined_data$activity <- activities[combined_data$activity,2]
   
-  #calculating average,standard deviation of values
-  avg <- c()
-  sdv <- c()
-  for(i in 1:nrow(values)) {
-    tmp <- values[[i,1]] %>% strsplit(split = " ") %>% unlist() %>% as.numeric()
-    avg <- c(avg,mean(tmp,na.rm = T))
-    sdv <- c(sdv,sd(tmp,na.rm = T))
-  }
-  combined_data <- cbind(combined_data,average = avg, SD = sdv) %>% select(!c(Values,Activity_id))
+  #extracting only average,standard deviation of values
+  required_data <- combined_data %>% select(subject,activity,contains("mean"),contains("std"))
   
-  #Tyding up the data 
-
-  subject_details <- combined_data %>% select(c(Subject,Activity)) %>% unique() 
-  experiment_details <- cbind(id = c(1:nrow(subject_details)),subject_details)
+  #Meaningful labels for variables
+  names(required_data) <- gsub("acc","Accelerometer",names(required_data),ignore.case = T)
+  names(required_data) <- gsub("gyro","Gyroscope",names(required_data),ignore.case = T)
+  names(required_data) <- gsub("mag","Magnitude",names(required_data),ignore.case = T)
+  names(required_data) <- gsub("-mean()","Mean",names(required_data),ignore.case = T)
+  names(required_data) <- gsub("-std()","STD",names(required_data),ignore.case = T)
+  names(required_data) <- gsub("freq","Frequency",names(required_data),ignore.case = T)
+  names(required_data) <- gsub("gravity","Gravity",names(required_data),ignore.case = T)
   
-  experiment_values <- full_join(experiment_details,combined_data,by.x = c("Subject,Activity"),by.y = c("Subject,Activity")) %>%
-    select(c(id,average)) %>% group_by(id) %>% summarise(average = mean(average)) 
-  
-  concise_data <- full_join(experiment_details,experiment_values) %>% select(!id) %>% spread(Activity,average)
-  
+  concise_data <- required_data %>% group_by(subject, activity) %>% summarise_all(list(mean))
+  write.table(concise_data, "output.txt", row.name=FALSE)
+  concise_data
   
 }
